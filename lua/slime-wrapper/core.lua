@@ -1,62 +1,59 @@
 local api = vim.api
-local fn = vim.fn
-
-local M = {}
 local bt = require'bottom-term.core'
+local M = {}
 
 
 local function start_slime_session (cmd)
-  if fn.bufnr('BottomTerm') < 0
-      or fn.bufwinid('BottomTerm') < 0 then
-    --- Why don't use `bt.term_toggle(cmd)`?
-    --- Since it first executes the command, and then `conda_autoenv`
-    --- switches to an appropriate environment. Before changing the
-    --- environment, the command may be invalid or irrelevant.
-    --- However, we can get back to `bt.term_toggle(cmd)` when
-    --- functionality like `auenv.nvim` is added to Neovim settings.
-    bt.term_toggle()
-    --- `conda_autoenv` is available only after installing the Bash
-    --- or Zsh settings and works in cooperation with project.nvim plugin.
-  end
+  local bh = api.nvim_get_current_buf()
+  bt.execute(cmd)
 
-  --- NOTE: BottomtermToggle restores focus on a window from
-  --- which it was called if 'bottom_term_focus_on_win' is true.
-  --- Thus, the next line is necessary.
-  api.nvim_set_current_win(fn.bufwinid('BottomTerm'))
-
-  --- Trim `cmd`
-  cmd = cmd:match'^%s*(.-)%s*$'
-
-  if cmd ~= nil and cmd ~= '' then
-    local tji = api.nvim_buf_get_var(0, 'terminal_job_id')
-    api.nvim_chan_send(tji, cmd .. '\n')
-  end
-
-  local tab_var = api.nvim_tabpage_get_var
-  local tnr = api.nvim_tabpage_get_number(0)
-
-  if tab_var(tnr, 'bottom_term_horizontal') then
-    bt.reverse_orient()
+  if vim.t.bottom_term_horizontal then
+    bt.reverse_orientation()
   end
 
   vim.g.slime_default_config = {
-    jobid = tab_var(tnr, 'bottom_term_channel'),
+    jobid = vim.t.bottom_term_channel,
     target_pane = '{top-right}',
   }
+
+  --- Manually set `b:slime_config`. It is necessary to update
+  --- when closing BottomTerm instance and spawning a new one.
+  api.nvim_buf_set_var(bh, 'slime_config', vim.g.slime_default_config)
+  bt._ephemeral.ss_exists = true
 end
 
 
 function M.select_session ()
+  if bt._ephemeral and bt._ephemeral.ss_exists then
+    if bt._ephemeral.ips_exists then
+      bt.terminate()
+    else
+      bt.toggle()
+      return
+    end
+  end
+
   local shell = vim.env.SHELL:match('^.+/(.+)$')
 
   vim.ui.input(
     { prompt = 'Select interpreter [' .. shell .. '] ' },
     function (cmd) start_slime_session(cmd or '') end)
+    --- TODO: do nothing on cancel (i.e., <Esc> and <C-c>).
 end
 
 
 function M.start_ipython_session ()
-  local cwid = api.nvim_get_current_win()
+  if bt._ephemeral and bt._ephemeral.ss_exists then
+    if bt._ephemeral.ips_exists then
+      bt.toggle()
+      return
+    else
+      bt.terminate()
+    end
+  end
+
+  local caller_wid = api.nvim_get_current_win()
+
   local check = 'pip3 --disable-pip-version-check list 2>&1'
   check = check .. [[ | grep -qP 'matplotlib(?!-inline)' ]]
 
@@ -65,12 +62,12 @@ function M.start_ipython_session ()
     cmd = cmd .. ' --matplotlib'
   end
 
-  vim.g.bottom_term_focus_on_win = false
   start_slime_session(cmd)
-  vim.g.bottom_term_focus_on_win = true
-
-  api.nvim_set_current_win(cwid)
+  api.nvim_set_current_win(caller_wid)
   vim.cmd 'stopinsert'
+
+  bt._ephemeral.ips_exists = true
+  bt.opts.focus_on_caller = true
 end
 
 
