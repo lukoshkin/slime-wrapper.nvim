@@ -53,8 +53,15 @@ function M.start_ipython_session ()
   end
 
   local caller_wid = api.nvim_get_current_win()
+  local check = "command -v ipython | grep -q 'ipython'"
 
-  local check = 'pip3 --disable-pip-version-check list 2>&1'
+  --- NOTE: The following checks work only when piping to grep.
+  if os.execute(check) ~= 0 then
+    print('IPython is not installed! Aborting..')
+    return
+  end
+
+  check = 'pip3 --disable-pip-version-check list 2>&1'
   check = check .. [[ | grep -qP 'matplotlib(?!-inline)' ]]
 
   local cmd = 'ipython'

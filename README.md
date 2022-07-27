@@ -14,19 +14,21 @@ to re-write the latter in Lua or at least VimL (see
 
 ## Installation
 
-With [**packer**](https://github.com/wbthomason/packer.nvim)
+With [**Packer**](https://github.com/wbthomason/packer.nvim)
 
 ```lua
+use {
+  'rxi/json.lua',
+  run = 'mkdir -p lua/json && mv json.lua lua/json/init.lua',
+}
+
 use {
   'lukoshkin/slime-wrapper.nvim',
   requires = {
     'jpalardy/vim-slime',
     'hanschen/vim-ipython-cell',
     'lukoshkin/bterm.nvim',
-    {
-      'lukoshkin/auenv.nvim',
-      run = './install.sh',
-    }
+    'lukoshkin/auenv.nvim',
   },
   config = function ()
     require'auenv'.setup()
