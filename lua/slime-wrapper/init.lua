@@ -13,10 +13,27 @@ vim.keymap.set('n', '<leader><CR>', '<Plug>SlimeSendCell')
 --- 'SlimeSendCell' + 'IPythonCellNextCell'
 
 
+local python_cell_delims = { '# ?%%', '# In\\[(\\d+| )\\]:' }
+local vim_cell_delims = { '# %%', '#%%', '# In\\[\\(\\d\\+\\| \\)\\]:' }
+--- Small notes about '# %%' and '#%%':
+--- flake8 will error on #%%: a space is necessary after #,
+--- commentary.vim adds a space after after #.
+
+for k, v in pairs(vim_cell_delims) do
+  vim_cell_delims[k] = '\\(#\\s*\\)\\@<!' .. v
+end
+
+for k, v in pairs(python_cell_delims) do
+  python_cell_delims[k] = '(?<!#)' .. v
+end
+
+--- We use two patterns at once, since Python and Vim regex-s differ.
+vim.g.slime_wrapper_hl_pat = table.concat(vim_cell_delims, '\\|')
+vim.g.ipython_cell_tag = python_cell_delims
+vim.g.ipython_cell_regex = 1
+
 --- The following global variable cannot be placed in ftplugin/python.lua,
 --- since it should be declared before 'vim-ipython-cell' plugin is loaded.
-vim.g.ipython_cell_tag = { '# %%', '#%%', '# In\\[\\(\\d\\+\\| \\)\\]:' }
---- flake8 will error on #%%: a space is necessary after #.
 
 --- Default highlighting is linked to Folded.
 --- Folded colors may be unset by default.
