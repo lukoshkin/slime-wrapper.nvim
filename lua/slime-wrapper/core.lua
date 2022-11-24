@@ -2,6 +2,11 @@ local api = vim.api
 local bt = require'bottom-term.core'
 local M = {}
 
+local notify = function (msg, log_lvl_key)
+  local log_lvl_vals = { warning=vim.log.levels.WARN, error='error' }
+  vim.notify(msg, log_lvl_vals[log_lvl_key], { title = 'slime-wrapper' })
+end
+
 
 local function start_slime_session (cmd)
   local bh = api.nvim_get_current_buf()
@@ -42,6 +47,25 @@ function M.select_session ()
 end
 
 
+local function shellcmd_capture (cmd)
+  local f = assert(io.popen(cmd, 'r'))
+  local s = assert(f:read('*a'))
+  f:close()
+
+  s = string.gsub(s, '^%s+', '')
+  s = string.gsub(s, '%s+$', '')
+  s = string.gsub(s, '[\n\r]+', ' ')
+  return s
+end
+
+
+local function has_package (check_cmd)
+  local cmd = check_cmd .. '; echo $?'
+  local code = shellcmd_capture(cmd)
+  return tonumber(code) == 0
+end
+
+
 function M.start_ipython_session ()
   if bt._ephemeral and bt._ephemeral.ss_exists then
     if bt._ephemeral.ips_exists then
@@ -55,9 +79,8 @@ function M.start_ipython_session ()
   local caller_wid = api.nvim_get_current_win()
   local check = "command -v ipython | grep -q 'ipython'"
 
-  --- NOTE: The following checks work only when piping to grep.
-  if os.execute(check) ~= 0 then
-    print('IPython is not installed! Aborting..')
+  if not has_package(check) then
+    notify('IPython is not installed! Aborting..', 'error')
     return
   end
 
@@ -65,8 +88,10 @@ function M.start_ipython_session ()
   check = check .. [[ | grep -qP 'matplotlib(?!-inline)' ]]
 
   local cmd = 'ipython'
-  if os.execute(check) == 0 then
+  if has_package(check) then
     cmd = cmd .. ' --matplotlib'
+  else
+    notify('Matplotlib is not installed.', 'warning')
   end
 
   start_slime_session(cmd)
