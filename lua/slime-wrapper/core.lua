@@ -10,6 +10,9 @@ end
 
 local function start_slime_session (cmd)
   local bh = api.nvim_get_current_buf()
+  if not bt.is_visible() then
+    bt.toggle()
+  end
   bt.execute(cmd)
 
   if vim.t.bottom_term_horizontal then
